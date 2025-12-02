@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🐍 Snake Game</h1>
+            <div class="score-board">
+                <div class="score-item">
+                    <span class="label">Score:</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="score-item">
+                    <span class="label">High Score:</span>
+                    <span id="highScore">0</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="game-wrapper">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+            
+            <div id="gameOver" class="overlay hidden">
+                <div class="overlay-content">
+                    <h2>Game Over!</h2>
+                    <p>Your Score: <span id="finalScore">0</span></p>
+                    <button id="restartBtn" class="btn">Play Again</button>
+                </div>
+            </div>
+
+            <div id="startScreen" class="overlay">
+                <div class="overlay-content">
+                    <h2>Ready to Play?</h2>
+                    <p>Use arrow keys or WASD to control the snake</p>
+                    <button id="startBtn" class="btn">Start Game</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-info">
+                <p>🎮 Use arrow keys or WASD to move</p>
+            </div>
+            <div class="mobile-controls">
+                <button class="control-btn" id="upBtn">↑</button>
+                <div>
+                    <button class="control-btn" id="leftBtn">←</button>
+                    <button class="control-btn" id="downBtn">↓</button>
+                    <button class="control-btn" id="rightBtn">→</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
+
