@@ -1,0 +1,119 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allows manual triggering
+
+env:
+  IMAGE_NAME: snake-game
+  REGISTRY: ghcr.io  # GitHub Container Registry
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: ${{ env.IMAGE_NAME }}:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Test Docker image
+      run: |
+        docker run -d -p 8080:80 --name test-container ${{ env.IMAGE_NAME }}:latest
+        sleep 5
+        curl -f http://localhost:8080 || exit 1
+        docker stop test-container
+        docker rm test-container
+
+  build-and-push:
+    name: Build and Push to Registry
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    # Uncomment and configure when you have a Kubernetes cluster
+    # environment:
+    #   name: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+
+    - name: Configure kubectl (example for minikube/cluster)
+      # This step needs to be configured based on your Kubernetes setup
+      # For minikube, you'd need to set up kubectl config
+      # For cloud providers, use their respective setup actions
+      run: |
+        echo "Configure kubectl for your cluster here"
+        # Example for cloud providers:
+        # kubectl config set-cluster my-cluster --server=${{ secrets.KUBE_SERVER }}
+        # kubectl config set-credentials my-user --token=${{ secrets.KUBE_TOKEN }}
+        # kubectl config set-context my-context --cluster=my-cluster --user=my-user
+        # kubectl config use-context my-context
+
+    - name: Deploy to Kubernetes
+      run: |
+        # Update deployment.yaml with new image tag if needed
+        # kubectl apply -f deployment.yaml
+        # kubectl apply -f service.yaml
+        # kubectl rollout status deployment/snake-game
+        echo "Deployment step - configure for your cluster"
+
