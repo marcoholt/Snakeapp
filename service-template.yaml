@@ -1,0 +1,34 @@
+# Service Template - Copy and modify for your app
+# Replace the items marked with <-- with your values
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: <your-service-name>          # <-- Choose a name
+  labels:
+    app: <your-app-name>             # <-- Optional, for organization
+spec:
+  type: NodePort                     # <-- NodePort for minikube, ClusterIP for internal, LoadBalancer for cloud
+  selector:
+    app: <your-app-label>            # <-- MUST match pod labels from Deployment!
+  ports:
+  - protocol: TCP
+    port: <service-port>             # <-- Port Service listens on (usually 80)
+    targetPort: <container-port>     # <-- MUST match containerPort from Deployment!
+    nodePort: <external-port>        # <-- Only for NodePort type (30000-32767 range)
+
+# Example for a web app:
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: my-webapp-service
+# spec:
+#   type: NodePort
+#   selector:
+#     app: my-webapp
+#   ports:
+#   - protocol: TCP
+#     port: 80
+#     targetPort: 8080
+#     nodePort: 30080
+
