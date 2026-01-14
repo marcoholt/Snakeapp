@@ -26,11 +26,11 @@ jobs:
       - name: Check Dockerfile exists
         id: check-dockerfile
         run: |
-          if [ -f "snakeapp/dockerfile" ]; then
-            echo "path=snakeapp/dockerfile" >> $GITHUB_OUTPUT
+          if [ -f "dockerfile" ]; then
+            echo "path=./dockerfile" >> $GITHUB_OUTPUT
             echo "exists=true" >> $GITHUB_OUTPUT
-          elif [ -f "dockerfile" ]; then
-            echo "path=dockerfile" >> $GITHUB_OUTPUT
+          elif [ -f "snakeapp/dockerfile" ]; then
+            echo "path=snakeapp/dockerfile" >> $GITHUB_OUTPUT
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT
@@ -52,8 +52,18 @@ jobs:
 
       - name: Validate Kubernetes manifests
         run: |
-          kubectl apply --dry-run=client -f snakeapp/k8/deployment.yaml
-          kubectl apply --dry-run=client -f snakeapp/k8/service.yaml
+          # Try different possible paths
+          if [ -f "k8/deployment.yaml" ]; then
+            kubectl apply --dry-run=client -f k8/deployment.yaml
+            kubectl apply --dry-run=client -f k8/service.yaml
+          elif [ -f "snakeapp/k8/deployment.yaml" ]; then
+            kubectl apply --dry-run=client -f snakeapp/k8/deployment.yaml
+            kubectl apply --dry-run=client -f snakeapp/k8/service.yaml
+          else
+            echo "Kubernetes manifests not found. Searching..."
+            find . -name "deployment.yaml" -o -name "service.yaml"
+            exit 1
+          fi
 
   cd:
     name: Continuous Deployment
@@ -78,7 +88,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./snakeapp
+          context: .
+          file: ./dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/snakeapp:latest
@@ -95,11 +106,21 @@ jobs:
 
       - name: Deploy to Kubernetes
         run: |
-          # Update image in deployment.yaml with new tag
-          sed -i "s|image:.*|image: ${{ secrets.DOCKER_USERNAME }}/snakeapp:${{ github.sha }}|" snakeapp/k8/deployment.yaml
+          # Find deployment.yaml and update image tag
+          if [ -f "k8/deployment.yaml" ]; then
+            DEPLOY_PATH="k8"
+            sed -i "s|image:.*|image: ${{ secrets.DOCKER_USERNAME }}/snakeapp:${{ github.sha }}|" k8/deployment.yaml
+          elif [ -f "snakeapp/k8/deployment.yaml" ]; then
+            DEPLOY_PATH="snakeapp/k8"
+            sed -i "s|image:.*|image: ${{ secrets.DOCKER_USERNAME }}/snakeapp:${{ github.sha }}|" snakeapp/k8/deployment.yaml
+          else
+            echo "Error: deployment.yaml not found"
+            find . -name "deployment.yaml"
+            exit 1
+          fi
           
           # Apply manifests
-          kubectl apply -f snakeapp/k8/
+          kubectl apply -f $DEPLOY_PATH/
           
           # Wait for rollout
           kubectl rollout status deployment/myapp
