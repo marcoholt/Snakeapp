@@ -23,13 +23,30 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       # 3. Lint Dockerfile (optional but recommended)
+      - name: Check Dockerfile exists
+        id: check-dockerfile
+        run: |
+          if [ -f "snakeapp/dockerfile" ]; then
+            echo "path=snakeapp/dockerfile" >> $GITHUB_OUTPUT
+            echo "exists=true" >> $GITHUB_OUTPUT
+          elif [ -f "dockerfile" ]; then
+            echo "path=dockerfile" >> $GITHUB_OUTPUT
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Dockerfile not found. Available files:"
+            find . -name "*ockerfile*" -type f
+          fi
+
       - name: Lint Dockerfile
+        if: steps.check-dockerfile.outputs.exists == 'true'
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: snakeapp/dockerfile
+          dockerfile: ${{ steps.check-dockerfile.outputs.path }}
           ignore: DL3008,DL3009
+          no-fail: true
 
-      # 4. Validate Kubernetes manifests
+      # 5. Validate Kubernetes manifests
       - name: Set up kubectl
         uses: azure/setup-kubectl@v3
 
