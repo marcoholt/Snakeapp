@@ -11,12 +11,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Debug – locate Dockerfile
+        run: |
+          echo "PWD=$(pwd)"
+          ls -la
+          ls -la snakeapp || true
+          find . -maxdepth 6 -type f -iname "*dockerfile*" -print
+          git ls-files | grep -i dockerfile || true
+
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: snakeapp/Dockerfile
 
-      - name: Validate Kubernetes manifests
+      - name: Install kubectl
         uses: azure/setup-kubectl@v3
 
       - name: Dry-run apply (checks YAML is valid)
