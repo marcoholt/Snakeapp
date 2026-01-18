@@ -22,7 +22,7 @@ jobs:
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: snakeapp/Dockerfile
+          dockerfile: Dockerfile
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
