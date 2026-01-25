@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Debug – locate Dockerfile
+      - name: Debug - locate Dockerfile
         run: |
           echo "PWD=$(pwd)"
           ls -la
@@ -22,14 +22,11 @@ jobs:
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: Dockerfile
+          dockerfile: snakeapp/Dockerfile
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
 
       - name: Dry-run apply (checks YAML is valid)
         run: |
-           curl -L -o kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
-    tar -xzf kubeconform.tar.gz kubeconform
-    sudo mv kubeconform /usr/local/bin/kubeconform
-    kubeconform -strict -summary k8/*.yaml
+          kubectl apply --dry-run=client -f snakeapp/k8/
