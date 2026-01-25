@@ -24,9 +24,9 @@ jobs:
         with:
           dockerfile: ./Dockerfile
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
-
-      - name: Dry-run apply (checks YAML is valid)
+      - name: Validate Kubernetes YAML (kubeconform)
         run: |
-          kubectl apply --dry-run=client -f k8/
+          curl -L -o kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar -xzf kubeconform.tar.gz kubeconform
+          sudo mv kubeconform /usr/local/bin/kubeconform
+          kubeconform -strict -summary -ignore-missing-schemas k8/
