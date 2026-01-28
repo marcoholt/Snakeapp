@@ -111,7 +111,7 @@ jobs:
       # - Service name:    snakeapp
       - name: Apply Kubernetes manifests
         run: |
-          kubectl apply -f ./k8s/
+          kubectl apply -f ./k8/
 
       - name: Patch Deployment image to the newly built GHCR image
         run: |
