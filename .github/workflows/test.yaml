@@ -34,3 +34,112 @@ jobs:
           tar -xzf kubeconform.tar.gz kubeconform
           sudo mv kubeconform /usr/local/bin/kubeconform
           kubeconform -strict -summary -ignore-missing-schemas k8/
+
+  # -----------------------------
+  # CD (added) - GHCR + KIND
+  # -----------------------------
+
+  # 1) Tag the image with the Git SHA
+  # 2) Push the image to GitHub Container Registry (ghcr.io)
+  cd-publish-image:
+    name: CD - Build & Push image (GHCR)
+    runs-on: ubuntu-latest
+    needs: ci
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image name (tagged with commit SHA)
+        id: meta
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_SHA}"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR (uses ephemeral GITHUB_TOKEN)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+
+  # 3) Spin up a pinned-version KIND cluster inside the runner
+  # 4) Deploy manifests from ./k8s/
+  # 5) Patch Deployment to point at the newly pushed GHCR image
+  # 6) Wait for rollout
+  # 7) Smoke test via port-forward + curl
+  # 8) Cluster is ephemeral (runner teardown)
+  cd-kind-smoketest:
+    name: CD - Deploy to KIND + smoke test
+    runs-on: ubuntu-latest
+    needs: cd-publish-image
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      # Pin Kubernetes by pinning the kind node image (kindest/node).
+      - name: Create KIND cluster (pinned Kubernetes version)
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: snakeapp-ci
+          node_image: kindest/node:v1.29.4
+
+      # Manifests are expected at ./k8s/ (per your learning goal / request).
+      # Must include:
+      # - Deployment name: snakeapp
+      # - Container name:  snakeapp
+      # - Service name:    snakeapp
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f ./k8s/
+
+      - name: Patch Deployment image to the newly built GHCR image
+        run: |
+          kubectl set image deployment/snakeapp snakeapp="${{ needs.cd-publish-image.outputs.image }}"
+
+      - name: Wait for Deployment rollout
+        run: |
+          kubectl rollout status deployment/snakeapp --timeout=180s
+
+      - name: Smoke test (port-forward Service + curl)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubectl port-forward svc/snakeapp 18080:80 >/tmp/port-forward.log 2>&1 &
+          PF_PID="$!"
+
+          cleanup() {
+            kill "$PF_PID" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for i in {1..30}; do
+            if curl -fsS "http://127.0.0.1:18080/" >/dev/null; then
+              echo "Smoke test passed"
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "Smoke test FAILED. Port-forward logs:"
+          tail -n 200 /tmp/port-forward.log || true
+          exit 1
