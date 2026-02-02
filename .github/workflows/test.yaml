@@ -126,7 +126,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          kubectl port-forward svc/myapp 18080:80 >/tmp/port-forward.log 2>&1 &
+          kubectl port-forward svc/snakeapp 18080:80 >/tmp/port-forward.log 2>&1 &
           PF_PID="$!"
 
           cleanup() {
