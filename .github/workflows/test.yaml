@@ -119,14 +119,14 @@ jobs:
 
       - name: Wait for Deployment rollout
         run: |
-          kubectl rollout status deployment/snakeapp --timeout=180s
+          kubectl rollout status deployment/myapp --timeout=180s
 
       - name: Smoke test (port-forward Service + curl)
         shell: bash
         run: |
           set -euo pipefail
 
-          kubectl port-forward svc/snakeapp 18080:80 >/tmp/port-forward.log 2>&1 &
+          kubectl port-forward svc/myapp 18080:80 >/tmp/port-forward.log 2>&1 &
           PF_PID="$!"
 
           cleanup() {
