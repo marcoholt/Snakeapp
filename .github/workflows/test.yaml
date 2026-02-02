@@ -115,7 +115,7 @@ jobs:
 
       - name: Patch Deployment image to the newly built GHCR image
         run: |
-          kubectl set image deployment/snakeapp snakeapp="${{ needs.cd-publish-image.outputs.image }}"
+          kubectl set image deployment/myapp myapp="${{ needs.cd-publish-image.outputs.image }}"
 
       - name: Wait for Deployment rollout
         run: |
