@@ -117,24 +117,40 @@ jobs:
         run: |
           kubectl set image deployment/myapp myapp="${{ needs.cd-publish-image.outputs.image }}"
 
-      - name: Wait for Deployment rollout
-        run: |
-          kubectl rollout status deployment/myapp --timeout=180s
-
-      - name: Smoke test (port-forward Service + curl)
+      - name: Smoke test (debuggable)
         shell: bash
         run: |
           set -euo pipefail
 
+          echo "== Cluster objects =="
+          kubectl get deploy,svc,pods -o wide
+
+          echo "== Rollout =="
+          kubectl rollout status deployment/myapp --timeout=180s
+
+          echo "== Service + endpoints =="
+          kubectl get svc snakeapp -o yaml
+          kubectl get endpoints snakeapp -o wide || true
+
+          echo "== Pods selected by service selector (app=myapp) =="
+          kubectl get pods -l app=myapp --show-labels -o wide
+
+          POD="$(kubectl get pods -l app=myapp -o jsonpath='{.items[0].metadata.name}')"
+          echo "Using POD=$POD"
+
+          echo "== Pod container ports + env (from spec) =="
+          kubectl get pod "$POD" -o jsonpath='{.spec.containers[0].ports}' ; echo
+          kubectl get pod "$POD" -o jsonpath='{.spec.containers[0].env}' ; echo
+
+          echo "== Is anything listening on 8083 inside the pod? =="
+          kubectl exec "$POD" -- sh -lc 'command -v ss >/dev/null && ss -lntp || netstat -lntp || true'
+
+          echo "== Port-forward service 8083 -> localhost 18080 =="
           kubectl port-forward svc/snakeapp 18080:8083 >/tmp/port-forward.log 2>&1 &
           PF_PID="$!"
+          trap 'kill "$PF_PID" >/dev/null 2>&1 || true' EXIT
 
-          cleanup() {
-            kill "$PF_PID" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
-
-          for i in {1..30}; do
+          for i in {1..60}; do
             if curl -fsS "http://127.0.0.1:18080/" >/dev/null; then
               echo "Smoke test passed"
               exit 0
@@ -142,6 +158,14 @@ jobs:
             sleep 1
           done
 
-          echo "Smoke test FAILED. Port-forward logs:"
+          echo "Smoke test FAILED."
+          echo "== Port-forward logs =="
           tail -n 200 /tmp/port-forward.log || true
+
+          echo "== Pod describe =="
+          kubectl describe pod "$POD" || true
+
+          echo "== Pod logs =="
+          kubectl logs "$POD" --tail=200 || true
+
           exit 1
