@@ -142,11 +142,11 @@ jobs:
           kubectl get pod "$POD" -o jsonpath='{.spec.containers[0].ports}' ; echo
           kubectl get pod "$POD" -o jsonpath='{.spec.containers[0].env}' ; echo
 
-          echo "== Is anything listening on 8083 inside the pod? =="
+          echo "== Is anything listening on 80 inside the pod? =="
           kubectl exec "$POD" -- sh -lc 'command -v ss >/dev/null && ss -lntp || netstat -lntp || true'
 
-          echo "== Port-forward service 8083 -> localhost 18080 =="
-          kubectl port-forward svc/snakeapp 18080:8083 >/tmp/port-forward.log 2>&1 &
+          echo "== Port-forward service 80 -> localhost 18080 =="
+          kubectl port-forward svc/snakeapp 18080:80 >/tmp/port-forward.log 2>&1 &
           PF_PID="$!"
           trap 'kill "$PF_PID" >/dev/null 2>&1 || true' EXIT
 
